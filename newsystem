@@ -1,5 +1,5 @@
 #!/bin/bash
-
+DRYRUN='--check'
 TARGETHOST=$1
 if [ -z $TARGETHOST ]; then
   echo usage $0 hostname [c7/r8]
@@ -10,6 +10,8 @@ clean_exit()
   if [ -n "$INVENTORY" ]; then
      rm -f "$INVENTORY" 
   fi
+  echo some issue happened when initializing the hosts.  Exiting now, the host configuration is incomplete.
+  echo Not informing any other systems about this host
 }
 
 export ANSIBLE_HOME=/home/applications/ansible
@@ -32,16 +34,20 @@ EOF
 
 export ANSIBLE_HOST_KEY_CHECKING=False
 #Ansible does not return 1 when it fails!
-ansible-playbook -i $INVENTORY --ask-pass firstrun_r9.yml || clean_exit
+
+echo ansible-playbook -i $INVENTORY --ask-pass firstrun.yml "${DRYRUN}"  || clean_exit
+ansible-playbook -i $INVENTORY --ask-pass firstrun.yml "${DRYRUN}" || clean_exit
 
 ANSIBLE_SECRETS=/home/applications/.hysafe
 ssh -i $ANSIBLE_SECRETS/ansible_key  root@$TARGETHOST 'authconfig --enableldap --enableldapauth --ldapserver="ldaps://cfd6.host.ulster.ac.uk" --ldapbasedn="ou=groups,dc=host,dc=ulster,dc=ac,dc=uk" --updateall  --enableldaptls --enablemkhomedir'
+
 
 if [ 0 -ne $? ]; then
   echo some issue happened when initializing the hosts.  Exiting now, the host configuration is incomplete.
   echo Not informing any other systems about this host
   exit 1
 fi
+exit
 #Add system to list of configured hosts
 grep  -q ^$TARGETHOST'$' hosts || echo $TARGETHOST >> hosts
 echo host is configured, informing all systems of its identities

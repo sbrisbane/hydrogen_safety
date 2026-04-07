@@ -5,6 +5,16 @@
     - include_vars: 
          globalvars.yml
       tags: always
+    ###P Enable repos
+    - name: "Ensure the powertools repository is enabled"
+      ansible.builtin.command:
+        "dnf config-manager --enable powertools warn=no"
+      check_mode: no
+      when:  
+        - ( ansible_facts['distribution_major_version'] == "8" ) 
+        - ( ansible_facts['distribution'] == 'Rocky' )
+
+
     - file:
          path: /root/.ssh
          state: directory
@@ -118,6 +128,9 @@
          - sudo
          - nrpe
       notify: restartnrpe
+
+
+
     - name: Remove conflicting packages
       yum:
         name: tog-pegasus-libs
