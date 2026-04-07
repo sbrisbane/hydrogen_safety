@@ -1,0 +1,83 @@
+---
+#Run this to update all systems with a new system
+- name: Get SSH keys  
+  hosts: all  
+  gather_facts: yes
+  vars:  
+    - known_hosts: "files/known_hosts"  
+    - hostsequiv: "files/hosts.equiv"
+  tasks:  
+    - name: scan and register  short name
+      command: "ssh-keyscan {{ansible_host|default(inventory_hostname)}}"  
+      register: "host_keys1"  
+      changed_when: false  
+    - name: scan and register long name  
+      command: "ssh-keyscan {{ansible_fqdn|lower}}"  
+      register: "host_keys2"  
+      changed_when: false  
+
+
+    - file: path={{  item }} state=touch  
+      run_once: true
+      delegate_to:  127.0.0.1
+      loop:
+        - "{{ known_hosts }}"
+        - "{{ hostsequiv }}"
+    - blockinfile:  
+        dest: "{{known_hosts}}"  
+        marker: "# {mark} This part managed by Ansible"  
+        block: |  
+          {% for h in groups['all'] if hostvars[h].host_keys1 is defined %}  
+          {{ hostvars[h].host_keys1.stdout }}  
+          {% endfor %}  
+          {% for h in groups['all'] if hostvars[h].host_keys1 is defined %}  
+          {{ hostvars[h].host_keys1.stdout | replace(h, h + '-mpi') }}  
+          {% endfor %}  
+          {% for h in groups['all'] if hostvars[h].host_keys1 is defined %}  
+          {% for current in hostvars[h].ansible_all_ipv4_addresses %}
+          {% if current != "192.168.122.1" %}
+          {{ hostvars[h].host_keys1.stdout | replace(h, current) }}  
+          {% endif %}
+          {% endfor %}  
+          {% endfor %}  
+
+          {% for h in groups['all'] if hostvars[h].host_keys2 is defined %}  
+          {{ hostvars[h].host_keys2.stdout }}  
+          {% endfor %}  
+      run_once: true
+      delegate_to:  127.0.0.1
+      name: make known hosts file
+    - blockinfile:  
+        dest: "{{ hostsequiv }}"  
+        marker: "# {mark} This part managed by Ansible"  
+        block: |  
+          {% for h in groups['all'] %}  
+          {{ h }}
+          {{ hostvars[h]['ansible_fqdn'] }}
+          {{ h }}-mpi  
+          {%- endfor %}  
+      run_once: true
+      delegate_to:  127.0.0.1
+      name: hosts.equiv file
+
+- name: Distribute host info
+  hosts: all
+  gather_facts: no
+  vars:  
+    - known_hosts: "files/known_hosts"  
+    - hostsequiv: "files/hosts.equiv"
+  tasks:
+    - copy:
+        src: "{{ known_hosts }}"
+        dest: "/etc/ssh/ssh_known_hosts"
+      become: true
+    - copy:
+        src: "{{ hostsequiv }}"
+        dest: "/etc/hosts.equiv"
+      become: true
+    - blockinfile:  
+        dest: "/etc/hosts"  
+        marker: "# {mark} This part managed by Ansible"  
+        block: |  
+          {{ lookup('file', 'hostsblock') }}
+

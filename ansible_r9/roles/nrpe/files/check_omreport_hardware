@@ -1,0 +1,44 @@
+#!/bin/bash
+
+#
+# Check the system hardware components via omreport
+#
+# Andrew Harford <andrew.harford@securelinx.com>
+#
+
+VIRTWHAT=/usr/sbin/virtwhat
+
+if [ -x $VIRTWHAT ]; then
+  platform=$($VIRTWHAT)
+  if [ -n "$platform" ]; then
+    echo "Platform is $platform"
+    exit 0
+  fi
+fi
+
+
+OMREPORT=/opt/dell/srvadmin/bin/omreport
+
+if [ ! -x $OMREPORT ]; then
+  echo "Could not locate $OMREPORT"
+  exit 3 
+fi
+
+rc=0
+
+components="$($OMREPORT chassis | egrep -v '(^$|Health|Main System Chassis|SEVERITY : COMPONENT|For further help)'|tr '\n' '@')"
+
+while read -d '@' -r component; do
+  status=$(echo $component | awk '{print $1}')
+  if [ "$status" != "Ok" ]; then
+    rc=2
+    output="$component "
+  fi
+done <<< $components
+
+if [ $rc -eq 0 ]; then
+  output="All hardware components OK"
+fi
+
+echo $output
+exit $rc

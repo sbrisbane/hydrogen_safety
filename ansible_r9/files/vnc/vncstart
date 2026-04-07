@@ -1,0 +1,6 @@
+#!/bin/bash
+servernum=$(vncnumber)
+
+echo starting vncserver $servernum
+vncserver :"${servernum}"
+

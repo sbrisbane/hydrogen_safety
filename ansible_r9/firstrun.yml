@@ -1,0 +1,362 @@
+- hosts: targets
+  gather_facts: True
+  become: true 
+  tasks:
+    - include_vars: 
+         globalvars.yml
+      tags: always
+    - file:
+         path: /root/.ssh
+         state: directory
+         mode: 0700
+    - lineinfile:
+         line: "{{ lookup ('file', ansible_pub_key) }}"
+         path: "/root/.ssh/authorized_keys"
+         create: true
+         owner: root
+         group: root
+         mode: 0644
+      tags: ssh
+    - name: "Allow named users (except root) on authorized hosts to log in without any authentication"
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: "^HostbasedAuthentication=.*"
+        line: "HostbasedAuthentication yes" 
+      tags: ssh
+      notify: restartssh
+    - name: "Allow client on authorized hosts to use host based authentication"
+      lineinfile:
+        path: "/etc/ssh/ssh_config"
+        regexp: "^HostbasedAuthentication=.*"
+        line: "HostbasedAuthentication yes" 
+      tags: ssh
+    - name: "Allow ssh to check the keys for host based authentication"
+      lineinfile:
+        path: "/etc/ssh/ssh_config"
+        regexp: "^EnableSSHKeysign yes=.*"
+        line: "EnableSSHKeysign yes" 
+      tags: ssh
+    - name: "Disable IPv6"
+      lineinfile:
+        path : "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+        regexp: "^IPV6INIT=.*"
+        line: "IPV6INIT=no"
+      tags: networking
+    - name: set DNS1
+      lineinfile:
+        path : "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+        regexp: "^DNS1=.*"
+        line: "DNS1=194.80.87.35"
+      tags: networking
+    - name: set DNS2
+      lineinfile:
+        path : "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+        regexp: "^DNS2=.*"
+        line: "DNS2=194.80.87.36"
+      tags: networking
+
+    - name: "Set timezone to Europe/Belfast"
+      timezone:
+         name: Europe/Belfast
+      tags: networking
+
+    - name: disable_selinux
+      selinux:
+         state: disabled
+      tags:
+       - selinux
+
+    - name: disable firewalld
+      service:
+         name: firewalld
+         state: stopped
+         enabled: no
+      tags:
+         - firewalld
+#    - name: check DNS and network
+       
+    - name: disable firstboot service
+      systemd: 
+        name: systemd-firstboot
+        state: stopped
+        masked: yes
+      tags: firstboot
+    - name: Disable initial-setup 
+      systemd:
+        name: initial-setup
+        state: stopped
+        enabled: no
+      tags: firstboot
+
+
+    - name: "Change default target to graphical.target"
+      file:
+        src: /usr/lib/systemd/system/graphical.target
+        dest: /etc/systemd/system/default.target
+        state: link
+
+
+    - name: disable gnome-initial-setup
+      package: 
+        name: gnome-initial-setup
+        state: removed
+      tags: firstboot
+
+    - name: Configure SUDO
+      lineinfile:
+         line: '%wheel ALL=(ALL)       NOPASSWD: ALL'
+         regexp: '^%wheel.*ALL'
+         path: /etc/sudoers
+      tags:
+         - sudo
+    - name: Nagios can run lsi monitoring through sudo 
+      copy:
+        mode: 0600
+        src: files/sudoers.nrpelsi
+        dest: /etc/sudoers.d/nrpelsi
+      tags:
+         - sudo
+         - nrpe
+      notify: restartnrpe
+    - name: Remove conflicting packages
+      yum:
+        name: tog-pegasus-libs
+        state: removed
+#Update packages, this can take some time, but is necessary to match 686 packages with 64 bit versiosn
+    - name: update all packages
+      yum:
+        name: '*'
+        state: latest
+    - name: Mount and bind apps
+      mount:
+        path: /apps
+        src: 193.61.145.219:/apps
+        opts: vers=3,async,hard
+        state: mounted
+        fstype: nfs
+      when: inventory_hostname != "cfd6" 
+      tags: mountpoints
+ 
+    - name: Setup semaphore limits, mpi memlock etc for ansys
+      copy:
+        src: files/limits.d.90hpc.conf
+        dest: /etc/security/limits.d/90hpc.vonf
+        mode: 0644
+      notify: reloadsysctl
+    - name: Setup system tweaks for hpc systems
+      copy:
+        src: files/sysctl.d.hpc
+        dest: /etc/sysctl.d/90hpc.conf
+
+        mode: 0644
+      tags: 
+        - limits
+
+    - name: install basic packages and set up epel
+      package: 
+        name: [ipmitool, tigervnc-server, tigervnc, redhat-lsb, epel-release, nfs-utils]
+      tags: 
+        - packages
+    - name: Install more advanced packages for the system 
+      package: 
+        name: [nrpe, ganglia-gmond, environment-modules, sssd, sssd-ldap, clusterssh, telnet, java-1.8.0-openjdk-devel, sssd-client, sssd-client.i686, nagios-plugins-perl, nagios-plugins-swap, nagios-plugins-load]
+      tags: 
+        - environmentmodules
+        - packages
+        - nrpe
+    - include_role: 
+        name: nrpe
+      tags: nrpe
+
+    - name: Setup an alert for EXTREME load only
+      copy:
+        src: "files/check_veryhigh_load.cfg"
+        dest: "{{ nrpe_cfg_dir }}/check_veryhigh_load.cfg"
+      tags: nrpe
+      notify:
+        - restart nrpe
+            
+    - name: Copy files and rpms needed to check lsi raid controllers (C6145)"
+      copy: 
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode }}"
+      loop:
+       - src: "files/check_lsismart"
+         dest: "{{ nrpe_plugin_dir }}/check_lsismart"
+         mode: "0755"
+       - src: "files/lsirpms"
+         dest: "{{ local_rpm_stash }}"
+         mode: "0755"
+      tags: nrpe
+      when: ansible_product_name == "PowerEdge C6145"
+    - name: Install lsi rpms needed
+      yum: 
+       name:  ["{{ local_rpm_stash }}/lsirpms/kmod-megaraid_sas-07.716.01.00_el7.9-2.x86_64.rpm", "{{ local_rpm_stash }}/lsirpms/storcli-007.1705.0000.0000-1.noarch.rpm"]
+      tags: nrpe
+      when: ansible_product_name == "PowerEdge C6145"
+    - name: configure nagios check for swap
+      copy:
+        content: "command[check_swap_usage]=/usr/lib64/nagios/plugins/check_swap -w 30 -c 10"
+        dest: "{{ nrpe_cfg_dir }}/check_swap_usage.cfg"
+      notify:
+        - restart nrpe
+      tags: nrpe
+      when: ansible_product_name == "PowerEdge C6145"
+    - name: "Configure nagios check for MegaRAID (LSI)"
+      copy:
+        content: "command[check_lsismart]={{ nrpe_plugin_dir }}/check_lsismart"
+        dest: "/etc/nrpe.d/check_lsismart.cfg"
+      notify:
+        - restart nrpe
+      tags: nrpe
+      when: ansible_product_name == "PowerEdge C6145"
+
+    - include_role: 
+        name: dell
+
+    - name: Setup paths for environment modules
+      copy:
+        content: "export MODULEPATH=/apps/modules:$MODULEPATH\n" 
+        dest: /etc/profile.d/modulespath.sh
+      tags: 
+        - environmentmodules
+    - name: Set the tempalte file that dictates how to monitor the host
+      set_fact: 
+        host_template: "modern-dell.cfg.j2"
+      when: ansible_product_name != "PowerEdge C6145"
+      tags: nagios
+    - name: Set the tempalte file that dictates how to monitor the host
+      set_fact: 
+        host_template: "c6145.cfg.j2"
+      when: ansible_product_name == "PowerEdge C6145"
+      tags: nagios
+
+    - name: "Create nagios server-side config for the host"
+      ansible.builtin.template:
+        src: "templates/{{ host_template }}" 
+        dest: "/etc/nagios/hosts/{{ inventory_hostname }}.cfg"
+        owner: nagios
+        group: nagios
+        mode: u=rw,g=r,o=r
+      delegate_to: 127.0.0.1
+      tags: 
+        - nagios
+      notify: restartnagios
+
+    - name: Configure System Security Service Daemon directory
+      file:
+        path: /etc/sssd
+        mode: 0711
+        owner: root
+        group: root
+      tags: 
+        - auth
+    - name: Configure System Security Service Daemon config file
+      copy:
+        src: files/sssd.conf
+        dest: /etc/sssd/sssd.conf
+        mode: 0600
+      tags: 
+        - auth
+      notify: restartsssd
+    - name: Setup ganglia monitoring config
+      copy:
+        src: files/gmond.conf
+        dest: /etc/ganglia/gmond.conf
+        mode: 0600
+#TODO, doewsnt work on first boot due to 
+      #notify: restartgmond
+      tags: 
+        - ganglia
+    - name: setup ansys related bits and software
+      include_tasks: 
+        file: ansys.yml
+        apply:
+          tags: ansys
+      tags: ansys
+    #quota reporting
+    - name: set up quota reports cronjob
+      copy:
+        src: files/usagereport.cron
+        dest: /etc/cron.hourly/usagereport
+        mode: 0755
+      tags: quotas
+    - name: "Set up quota reports summary script"
+      copy:
+        src: files/usage_summary_report
+        dest: /usr/local/bin/usage_summary_report
+        mode: 0755
+      tags: quotas
+
+    #needs a reboot
+    - name: "Enable quotas on home"
+      replace:
+         path: /etc/fstab
+         regexp: '^([^\s]+\s+)/home(\s+[^\s]+\s+)defaults'
+         replace: '\1/home\2uqnoenforce'
+      notify: mainneedreboot
+      tags:  quotas 
+    - name: Start all monitoring services next boot
+      service: 
+        name: "{{ item }}"
+        enabled: True
+      loop: [ gmond, nrpe ]
+      tags: 
+        - ganglia
+        - nagios
+    - name: "Fix vnc message about creting color profiles"
+      copy:
+        dest: /etc/polkit-1/localauthority/50-local.d/color.pkla
+        src: polkit-1.color.pkla
+
+    - include_role:
+        name: robertdebock.grub
+
+      tags: 
+        - firstboot
+        - grub
+
+    - name: copy helper scripts for vnc
+      copy:
+         src: "{{ item }}"
+         dest: "/usr/local/bin/{{ item | basename }}"
+         mode: 0755  
+      loop:
+         - files/vnc/vncnumber
+         - files/vnc/vncconnect
+         - files/vnc/vnckill
+         - files/vnc/vncstart
+      tags: vnc
+
+#todo jdk.tls.disabledAlgorithms
+#in /usr/lib/jvm/jre-1.8.0-openjdk/lib/security/java.security
+  handlers:
+     - name: restartnagios
+       service:
+         name: nagios
+         state: restarted
+       delegate_to: 127.0.0.1
+       run_once: True
+     - name: restartnrpe
+       service:
+         name: nrpe
+         state: restarted
+     - name: restartssh
+       service:
+         name: sshd
+         state: restarted
+     - name: restartsssd
+       service:
+         name: sssd
+         state: restarted
+     - name: restartgmond
+       service:
+         name: gmond
+         state: restarted
+     - name: reloadsysctl
+       command: "/usr/sbin/sysctl -p /etc/sysctl.d/90hpc.conf"
+     - name: mainneedreboot
+       debug: 
+          msg: "A reboot is required to complete setup"
+

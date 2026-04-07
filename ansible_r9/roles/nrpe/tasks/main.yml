@@ -1,0 +1,26 @@
+---
+- name: Set Nagios Server Address
+  lineinfile: 
+    line: 'allowed_hosts=127.0.0.1,::1,{{ nagios_server_address }}'
+    regexp: '^allowed_hosts=.*'
+    path: "{{ nrpe_cfg }}"
+  when: nagios_server_address is defined
+    
+- name: Deploy Config files
+  copy: 
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "custom_commands.cfg", dest: "{{ nrpe_cfg_dir }}/custom_commands.cfg" }
+  notify:
+    - restart nrpe
+
+- name: Copy Plugin Scripts
+  copy: 
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0755"
+  loop:
+    - { src: "check_omreport_hardware", dest: "{{ nrpe_plugin_dir }}/check_omreport_hardware" }
+    - { src: "check_omreport_storage", dest: "{{ nrpe_plugin_dir }}/check_omreport_storage" }

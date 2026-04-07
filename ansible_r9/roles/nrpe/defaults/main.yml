@@ -1,0 +1,5 @@
+---
+# defaults file for compute-node
+nrpe_cfg: /etc/nagios/nrpe.cfg
+nrpe_cfg_dir: /etc/nrpe.d
+nrpe_plugin_dir: /usr/lib64/nagios/plugins/

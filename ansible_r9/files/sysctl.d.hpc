@@ -1,0 +1,2 @@
+#Needed for ansys workbench
+kernel.sem="256 40000 32 32000"

@@ -1,0 +1,11 @@
+#!/bin/bash
+init=$(( $(id -u) + 1 )) 
+if [ `whoami` == "root" ];then
+   servernum=1
+elif [ "$init" -gt 199999 ]; then 
+   servernum=$(( $init - 199950 )) 
+else
+   servernum=$(( $init - 998 ))
+fi
+echo $servernum
+

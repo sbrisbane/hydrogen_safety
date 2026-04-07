@@ -1,0 +1,20 @@
+#!/bin/bash
+BASEDIR=/apps/usage
+if ! [ -e "$BASEDIR" ]; then
+   echo $BASEDIR isnt available
+   exit
+fi
+
+REPDIR=$BASEDIR/$(hostname -s)
+if ! [ -e "$REPDIR" ]; then
+    /bin/mkdir $REPDIR
+fi
+if [ -e "$REPDIR/latest" ]; then
+    /bin/mv "$REPDIR/latest"  "$REPDIR/old"
+fi
+
+xfs_quota -x -c 'report -h' /home > "$REPDIR/.latest.new"
+xfs_quota -x -c 'report' /home > "$REPDIR/.latest_kbytes.new"
+/bin/mv "$REPDIR/.latest.new" "$REPDIR/latest"
+/bin/mv "$REPDIR/.latest_kbytes.new" "$REPDIR/latest_kbytes"
+

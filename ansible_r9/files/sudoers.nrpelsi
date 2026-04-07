@@ -1,0 +1,4 @@
+
+nrpe ALL=(ALL) NOPASSWD:/usr/sbin/smartctl
+nrpe ALL=(ALL) NOPASSWD:/opt/MegaRAID/storcli/storcli64
+

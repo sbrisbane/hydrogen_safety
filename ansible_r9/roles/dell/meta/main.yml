@@ -1,0 +1,14 @@
+galaxy_info:
+  author: Eoghan Cotter <eoghan.cotter@securelinx.com>
+  description: Role to configure Dell OpenManage Agents and DSU
+  company: Securelinx
+
+  min_ansible_version: 2.9
+
+  platforms:
+  - name: EL
+    versions:
+    - 7
+
+  galaxy_tags: []
+dependencies: []

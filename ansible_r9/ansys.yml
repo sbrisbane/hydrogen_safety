@@ -1,0 +1,12 @@
+---
+    - name: "install ansys system prerequisite packages"
+      package: 
+        name:  "{{ ansys_packages }}"
+      package:
+        name: "{{ ansys_192_packages }}"
+    - name: "/ansys_inc/v172/ProductConfig.sh"
+      debug :
+        msg: "TODO currently You need to manually run this /apps/ansys_inc/v172/ProductConfig.sh or this /apps/ansys_inc/v172/ProductConfig.sh -silent  -install_dir /apps/ansys_inc/"
+
+#TODO ln -sf /usr/lib64/libGLU.so.1.3.060402  /usr/lib64/libGLU.soln -sf /usr/X11R6/lib64/libXm.so.3.0.3  /usr/X11R6/lib64/libXm.soln -sf /usr/X11R6/lib64/libXp.so.6.2    /usr/X11R6/lib64/libXp.soln -sf /usr/X11R6/lib64/libXt.so.6.0    /usr/X11R6/lib64/libXt.soln -sf /usr/X11R6/lib64/libXext.so.6.4  /usr/X11R6/lib64/libXext.soln -sf /usr/X11R6/lib64/libXi.so.6.0    /usr/X11R6/lib64/libXi.soln -sf /usr/X11R6/lib64/libX11.so.6.2   /usr/X11R6/lib64/libX11.soln -sf /usr/X11R6/lib64/libSM.so.6.0    /usr/X11R6/lib64/libSM.soln -sf /usr/X11R6/lib64/libICE.so.6.4   /usr/X11R6/lib64/libICE.soln -sf /lib64/libgcc_s.so.1             /lib64/libgcc.so
+  

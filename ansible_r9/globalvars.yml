@@ -1,0 +1,5 @@
+nrpe_cfg_dir: /etc/nrpe.d
+nrpe_plugin_dir: /usr/lib64/nagios/plugins/
+nagios_server_address: cfd6.host.ulster.ac.uk
+local_rpm_stash: "/var/rpms"
+ansible_pub_key: "/home/applications/.hysafe/ansible_key.pub"

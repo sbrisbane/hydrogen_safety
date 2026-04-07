@@ -1,0 +1,5 @@
+#!/bin/bash
+servernum=$(vncnumber)
+echo connecting vncserver $servernum
+vncviewer :"${servernum}"
+

@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+#Dave Byrne
+#LSI Hardware RAID S.M.A.R.T Check
+#
+
+#Where is storcli?
+storclibin="/opt/MegaRAID/storcli/storcli64"
+
+#Check if storcli actually exists, echo and exit warning if it isnt
+if ! [ -e "$storclibin" ]
+then
+  echo "WARNING - StorCli Not Found"
+  exit 1
+fi
+
+#Get number of underlying physical disks from storcli
+underlyingdisks=`$storclibin /c0 show|grep "Physical Drives"|awk '{ print $4}'`
+
+#Loop to grab the smart health result from all physical disks
+counter=0
+while [ $counter -lt $underlyingdisks ]; do
+  #echo counter at $counter
+  smartctl -d sat+megaraid,$counter -a /dev/sda|grep "SMART overall-health self-assessment test result" >> /usr/results.txt
+  let counter=counter+1
+done
+
+#Analyse results and start giving exit codes
+
+if grep -q FAILED "/usr/results.txt";
+then
+    #failed string found, time to work out what disk it was
+    line=`awk '/FAILED/{ print NR; exit }' /usr/results.txt`
+    #subtract 1 from line number as disks start at 0
+    let line=line-1
+    diskinfo=`smartctl -d sat+megaraid,$line -a /dev/sda|grep -E 'Device Model|Serial Number'`
+    printf "CRITICAL - Device ID #$line FAILURE Imminent\nDISK INFO: \n$diskinfo \n"
+    rm -f /usr/results.txt
+    exit 2
+else
+    #failed string not found, echo and exit ok
+    echo "OK - All array disks healthy"
+    rm -f /usr/results.txt
+    exit 0
+fi
+

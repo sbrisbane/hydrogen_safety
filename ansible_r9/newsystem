@@ -1,0 +1,52 @@
+#!/bin/bash
+
+TARGETHOST=$1
+if [ -z $TARGETHOST ]; then
+  echo usage $0 hostname
+  exit 1
+fi
+clean_exit()
+{
+  if [ -n "$INVENTORY" ]; then
+     rm -f "$INVENTORY" 
+  fi
+}
+
+export ANSIBLE_HOME=/home/applications/ansible
+echo You will need to enter password for root on new server
+
+#Buid a temporary inventory only containing this host
+cd "$ANSIBLE_HOME"
+export INVENTORY="$(mktemp)"
+cat << EOF > $INVENTORY
+
+[targets]
+$TARGETHOST
+EOF
+
+export ANSIBLE_HOST_KEY_CHECKING=False
+#Ansible does not return 1 when it fails!
+ansible-playbook -i $INVENTORY --ask-pass firstrun.yml || clean_exit
+
+
+ssh -i $ANSIBLE_HOME/ansible_key  root@$TARGETHOST 'authconfig --enableldap --enableldapauth --ldapserver="ldaps://cfd6.host.ulster.ac.uk" --ldapbasedn="ou=groups,dc=host,dc=ulster,dc=ac,dc=uk" --updateall  --enableldaptls --enablemkhomedir'
+
+if [ 0 -ne $? ]; then
+  echo some issue happened when initializing the hosts.  Exiting now, the host configuration is incomplete.
+  echo Not informing any other systems about this host
+  exit 1
+fi
+#Add system to list of configured hosts
+grep  -q ^$TARGETHOST'$' hosts || echo $TARGETHOST >> hosts
+echo host is configured, informing all systems of its identities
+ansible-playbook -i hosts update_allsystems.yml
+
+echo "New systems should be rebooted to complete setup, do you want to reboot? y/N (default no)?"
+
+
+read reboot
+if [ -n "$reboot" ] && [ y == "$reboot" ]; then
+   echo ssh  root@$TARGETHOST  reboot
+   ssh  root@$TARGETHOST  reboot
+fi
+

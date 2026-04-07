@@ -1,0 +1,29 @@
+---
+- name: copy dell bootstrap script
+  copy: 
+     src: bootstrap.cgi
+     dest: "/usr/local/bin/dell_bootstrap.cgi"
+     mode: "0700"
+
+
+- name: Bootstrap dell repository
+  command:
+    cmd :  "bash /usr/local/bin/dell_bootstrap.cgi"
+    creates: "/etc/yum.repos.d/dell-system-update.repo"
+   
+- name: Install Dell Utilities
+  yum:
+    name: 
+      - srvadmin-all
+      - dell-system-update
+    state: present
+
+- name: Ensure Services Started and Enabled
+  service: 
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - dsm_om_connsvc.service
+    - dsm_sa_datamgrd.service
+    - dsm_sa_eventmgrd.service
