@@ -6,7 +6,7 @@ Hydrogen Safety Code
 Secrets have been removed from this github repository.  You will need a copy of these files existing 
  - /home/applications/.hysaf/ansible_key
  - /home/applications/.hysafe/ansible_key.pub
- - /home/applications/.hysafe/pass
+ - /home/applications/.hysafe/ansible_vault_pass
  - /home/applications/.hysafe/secrets.yml 
 
 
