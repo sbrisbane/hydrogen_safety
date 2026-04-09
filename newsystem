@@ -1,5 +1,5 @@
 #!/bin/bash
-DRYRUN='--check'
+#DRYRUN='--check'
 TARGETHOST=$1
 if [ -z $TARGETHOST ]; then
   echo usage $0 hostname [c7/r8]
@@ -15,10 +15,11 @@ clean_exit()
 }
 
 export ANSIBLE_HOME=/home/applications/ansible
+export ANSIBLE_SECRETS=/home/applications/.hysafe
 OS=${2-c7}
 
 if [ $OS == r8 ]; then
-   export ANSIBLE_HOME=/home/applications/ansible_r8
+   export ANSIBLE_HOME=/home/applications/hydrogen_safety/ansible
 fi
 
 echo You will need to enter password for root on new server
@@ -34,10 +35,14 @@ EOF
 
 export ANSIBLE_HOST_KEY_CHECKING=False
 #Ansible does not return 1 when it fails!
+ASKPASS='--ask-pass'
+ssh -oPasswordAuthentication=no -i $ANSIBLE_SECRETS/ansible_key $TARGETHOST hostname | grep cfd16 && ASKPASS=""
+echo $ASKPASS
 
-echo ansible-playbook -i $INVENTORY --ask-pass firstrun.yml "${DRYRUN}"  || clean_exit
-ansible-playbook -i $INVENTORY --ask-pass firstrun.yml "${DRYRUN}" || clean_exit
-
+echo ansible-playbook -i $INVENTORY $ASKPASS firstrun.yml ${DRYRUN} || clean_exit
+ansible-playbook -i $INVENTORY $ASKPASS firstrun.yml ${DRYRUN} || clean_exit
+pwd 
+ls
 ANSIBLE_SECRETS=/home/applications/.hysafe
 ssh -i $ANSIBLE_SECRETS/ansible_key  root@$TARGETHOST 'authconfig --enableldap --enableldapauth --ldapserver="ldaps://cfd6.host.ulster.ac.uk" --ldapbasedn="ou=groups,dc=host,dc=ulster,dc=ac,dc=uk" --updateall  --enableldaptls --enablemkhomedir'
 
@@ -47,11 +52,11 @@ if [ 0 -ne $? ]; then
   echo Not informing any other systems about this host
   exit 1
 fi
-exit
+
 #Add system to list of configured hosts
 grep  -q ^$TARGETHOST'$' hosts || echo $TARGETHOST >> hosts
 echo host is configured, informing all systems of its identities
-ansible-playbook -i hosts update_allsystems_r9.yml
+ansible-playbook -i hosts update_allsystems.yml
 
 echo "New systems should be rebooted to complete setup, do you want to reboot? y/N (default no)?"
 

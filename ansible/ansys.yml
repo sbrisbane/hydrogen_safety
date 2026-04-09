@@ -1,12 +1,44 @@
 ---
-    - name: "install ansys system prerequisite packages"
-      package: 
-        name:  "{{ ansys_packages }}"
-      package:
+  - name: "install ansys centos 7 prerequisite packages"
+    package: 
+        name:  "{{ ansys_c7_packages }}"
+    when:
+        - ( ansible_facts['distribution_major_version'] == "7" )
+  - name: "install ansys rocky 8 prerequisite packages"
+    package: 
+        name:  "{{ ansys_r8_packages }}"
+    when:
+        - ( ansible_facts['distribution_major_version'] == "8" )
+        - ( ansible_facts['distribution'] == 'Rocky' )
+  - name: create skeleton for users bin
+    file:
+       path:  "/etc/skel/bin"
+       state: "directory"
+       mode: '0755'
+       
+  - name: Run firefox without loading all the ansys libraries that break it
+    copy:
+      mode: '0755'
+      src: files/firefox
+      dest: /etc/skel/bin/firefox
+
+
+
+     # No chance v192 this will work on Rocky8 with all these packages that were basically obsolete already in centos7
+     # many of these packages dont exist in EL8 and there is no equivalent
+  - name: "Packages for ansys 19.2" 
+    package:
         name: "{{ ansys_192_packages }}"
-    - name: "/ansys_inc/v172/ProductConfig.sh"
-      debug :
-        msg: "TODO currently You need to manually run this /apps/ansys_inc/v172/ProductConfig.sh or this /apps/ansys_inc/v172/ProductConfig.sh -silent  -install_dir /apps/ansys_inc/"
+    when:
+        - ( ansible_facts['distribution_major_version'] == "7" )
+
+    #If 192 doesnt work, 172 wont either
+  - name: "/ansys_inc/v172/ProductConfig.sh"
+    debug :
+      msg: "TODO currently You need to manually run this /apps/ansys_inc/v172/ProductConfig.sh or this /apps/ansys_inc/v172/ProductConfig.sh -silent  -install_dir /apps/ansys_inc/"
+    when:
+        - ( ansible_facts['distribution_major_version'] == "7" )
+
 
 #TODO ln -sf /usr/lib64/libGLU.so.1.3.060402  /usr/lib64/libGLU.soln -sf /usr/X11R6/lib64/libXm.so.3.0.3  /usr/X11R6/lib64/libXm.soln -sf /usr/X11R6/lib64/libXp.so.6.2    /usr/X11R6/lib64/libXp.soln -sf /usr/X11R6/lib64/libXt.so.6.0    /usr/X11R6/lib64/libXt.soln -sf /usr/X11R6/lib64/libXext.so.6.4  /usr/X11R6/lib64/libXext.soln -sf /usr/X11R6/lib64/libXi.so.6.0    /usr/X11R6/lib64/libXi.soln -sf /usr/X11R6/lib64/libX11.so.6.2   /usr/X11R6/lib64/libX11.soln -sf /usr/X11R6/lib64/libSM.so.6.0    /usr/X11R6/lib64/libSM.soln -sf /usr/X11R6/lib64/libICE.so.6.4   /usr/X11R6/lib64/libICE.soln -sf /lib64/libgcc_s.so.1             /lib64/libgcc.so
   

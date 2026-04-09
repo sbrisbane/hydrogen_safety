@@ -16,6 +16,7 @@
     name: 
       - srvadmin-all
       - dell-system-update
+      - srvadmin-idracadm7
     state: present
 
 - name: Ensure Services Started and Enabled

@@ -81,3 +81,12 @@
         block: |  
           {{ lookup('file', 'hostsblock') }}
 
+- name: Restart Nagios on Nagios Server
+  hosts: cfd6
+  gather_facts: no
+  tasks:
+    - service: 
+        name: nagios
+        state: restarted
+    
+  

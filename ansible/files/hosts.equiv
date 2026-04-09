@@ -3,21 +3,9 @@
 cfd3
 CFD3.host.ulster.ac.uk
 cfd3-mpi  
-cfd5
-CFD5.host.ulster.ac.uk
-cfd5-mpi  
 cfd6
 CFD6.host.ulster.ac.uk
 cfd6-mpi  
-cfd7
-CFD7.host.ulster.ac.uk
-cfd7-mpi  
-cfd8
-CFD8.host.ulster.ac.uk
-cfd8-mpi  
-cfd9
-CFD9.host.ulster.ac.uk
-cfd9-mpi  
 cfd10
 CFD10.host.ulster.ac.uk
 cfd10-mpi  
@@ -45,4 +33,10 @@ cfd2-mpi
 cfd1
 CFD1.host.ulster.ac.uk
 cfd1-mpi  
+cfd16
+CFD16.host.ulster.ac.uk
+cfd16-mpi  
+cfd17
+CFD17.host.ulster.ac.uk
+cfd17-mpi  
 # END This part managed by Ansible
